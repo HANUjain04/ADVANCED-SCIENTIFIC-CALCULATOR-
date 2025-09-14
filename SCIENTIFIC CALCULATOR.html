@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Robotic Scientific Calculator</title>
+  <style>
+    :root{
+      --bg:#0b1020;--panel:#0f1530;--glass:#11193a;--accent:#7ee6ff;--accent-2:#a68cff;--text:#eaf6ff;--muted:#8ea1b3;--warn:#ffb86b;--good:#8ce99a;--shadow:rgba(0,0,0,.35);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;background:radial-gradient(1200px 800px at 20% -10%,#14214a 0%, #0b1020 40%, #070b19 100%);color:var(--text);font:500 16px/1.4 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
+    .app{display:grid;grid-template-columns: 360px 1fr;gap:18px;max-width:1200px;margin:24px auto;padding:16px}
+    @media(max-width:980px){.app{grid-template-columns:1fr}}
+
+    .calc{background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.01));border:1px solid rgba(255,255,255,.08);box-shadow:0 10px 30px var(--shadow), inset 0 0 0 1px rgba(255,255,255,.04);border-radius:20px;overflow:hidden}
+
+    .topbar{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.01));border-bottom:1px solid rgba(255,255,255,.08)}
+    .badge{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border-radius:999px;background:rgba(126,230,255,.1);border:1px solid rgba(126,230,255,.35);color:var(--accent);font-weight:700;letter-spacing:.6px;text-transform:uppercase;font-size:12px}
+
+    .screen{padding:18px 16px 8px 16px}
+    .expr{width:100%;height:36px;background:transparent;border:none;color:var(--text);font:600 20px/1.2 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas;outline:none}
+    .result{min-height:28px;font:700 28px/1.3 ui-monospace; color:var(--accent); text-align:right}
+    .mode-row{display:flex;align-items:center;justify-content:space-between;margin-top:8px;color:var(--muted)}
+    .toggle{display:inline-flex;border:1px solid rgba(255,255,255,.15);border-radius:999px;overflow:hidden}
+    .toggle button{all:unset;padding:6px 12px;cursor:pointer}
+    .toggle button.active{background:var(--accent-2);color:#0b1020;font-weight:800}
+
+    .grid{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;padding:14px;background:linear-gradient(180deg,rgba(255,255,255,.02),transparent)}
+    .key{user-select:none;border:1px solid rgba(255,255,255,.12);background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.02));backdrop-filter: blur(6px); border-radius:12px;padding:10px 8px;text-align:center;cursor:pointer;transition:.2s;box-shadow:0 2px 0 rgba(255,255,255,.06) inset}
+    .key:hover{transform:translateY(-1px);border-color:rgba(255,255,255,.25)}
+    .key:active{transform:translateY(0)}
+    .key.fn{color:#b3d2ff}
+    .key.op{color:#ffd9a0}
+    .key.equal{grid-column: span 2; background:linear-gradient(180deg,var(--accent) 0%, #8db8ff 100%);color:#0b1020;font-weight:900;border-color:transparent}
+    .key.equal:hover{filter:brightness(1.08)}
+    .key.wide{grid-column: span 2}
+
+    .side{position:relative;background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.01));border:1px solid rgba(255,255,255,.08);box-shadow:0 10px 30px var(--shadow), inset 0 0 0 1px rgba(255,255,255,.04);border-radius:20px;overflow:hidden;display:grid;grid-template-rows:auto 1fr auto}
+    .side h2{margin:0;font-size:18px}
+    .side .head{display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid rgba(255,255,255,.08)}
+
+    .history{padding:10px 14px; overflow:auto; max-height:38vh}
+    .history .row{display:flex;justify-content:space-between;gap:8px;padding:8px 6px;border-bottom:1px dashed rgba(255,255,255,.08)}
+    .history .row .h-expr{color:var(--muted)}
+    .history .row .h-res{color:var(--good); font-weight:700}
+
+    .robot{position:relative;padding:14px 16px;border-top:1px solid rgba(255,255,255,.08);background:linear-gradient(180deg,rgba(166,140,255,.08),transparent)}
+    .bot-wrap{display:flex;gap:12px;align-items:flex-start}
+    .bot{width:56px;height:56px;border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle at 30% 30%,#a68cff,#6d54ff);box-shadow:0 10px 18px rgba(109,84,255,.35)}
+    .bot svg{filter:drop-shadow(0 1px 2px rgba(0,0,0,.3))}
+    .bubble{flex:1;background:rgba(15,21,48,.8);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:10px 12px}
+    .bubble .title{font-weight:800;color:#d9ccff}
+    .bubble .msg{margin-top:6px;color:#d6e3ff}
+
+    .facts{margin-top:8px;font-size:13px;color:#b6c6d9}
+    .facts .label{color:#a1b7ff;font-weight:700}
+
+    .footer{padding:10px 14px;display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-size:13px;border-top:1px solid rgba(255,255,255,.08)}
+    .chip{padding:4px 8px;border:1px solid rgba(255,255,255,.15);border-radius:999px}
+
+    .links{display:flex;gap:12px}
+    .a{color:var(--accent)}
+    .kbd{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas; background:rgba(255,255,255,.07); padding:2px 6px; border-radius:6px; border:1px solid rgba(255,255,255,.15)}
+
+    .hint{position:absolute;top:10px;right:10px;font-size:12px;color:var(--muted)}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- Calculator -->
+    <section class="calc" aria-label="Robotic Scientific Calculator">
+      <div class="topbar">
+        <span class="badge">🤖 Quantum Calc</span>
+        <span class="hint">Keyboard friendly • Try <span class="kbd">sin(30)</span> + <span class="kbd">cos(60)</span></span>
+      </div>
+
+      <div class="screen">
+        <input id="expr" class="expr" aria-label="expression" placeholder="Type or tap… e.g. 2^3 + 4*sin(30)" />
+        <div id="result" class="result" aria-live="polite">0</div>
+        <div class="mode-row">
+          <div>
+            Angle mode:
+            <span class="toggle" role="tablist" aria-label="Angle mode">
+              <button id="degBtn" class="active" role="tab" aria-selected="true">DEG</button>
+              <button id="radBtn" role="tab" aria-selected="false">RAD</button>
+            </span>
+          </div>
+          <div>
+            Memory: <span id="memVal" class="chip">0</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid" aria-label="Calculator keys">
+        <div class="key fn" data-k="MC">MC</div>
+        <div class="key fn" data-k="MR">MR</div>
+        <div class="key fn" data-k="M+">M+</div>
+        <div class="key fn" data-k="M-">M-</div>
+        <div class="key op" data-k="(">(</div>
+        <div class="key op" data-k=")">)</div>
+
+        <div class="key fn" data-k="sin">sin</div>
+        <div class="key fn" data-k="cos">cos</div>
+        <div class="key fn" data-k="tan">tan</div>
+        <div class="key fn" data-k="asin">asin</div>
+        <div class="key fn" data-k="acos">acos</div>
+        <div class="key fn" data-k="atan">atan</div>
+
+        <div class="key fn" data-k="ln">ln</div>
+        <div class="key fn" data-k="log">log</div>
+        <div class="key fn" data-k="sqrt">√</div>
+        <div class="key fn" data-k="abs">abs</div>
+        <div class="key fn" data-k="exp">exp</div>
+        <div class="key fn" data-k="fact">n!</div>
+
+        <div class="key op" data-k="^">^</div>
+        <div class="key op" data-k="/">÷</div>
+        <div class="key op" data-k="*">×</div>
+        <div class="key op" data-k="-">−</div>
+        <div class="key op" data-k="+">+</div>
+        <div class="key fn" data-k="1/x">1/x</div>
+
+        <div class="key" data-k="7">7</div>
+        <div class="key" data-k="8">8</div>
+        <div class="key" data-k="9">9</div>
+        <div class="key fn" data-k="%">%</div>
+        <div class="key fn" data-k="+/-">±</div>
+        <div class="key fn" data-k="AC">AC</div>
+
+        <div class="key" data-k="4">4</div>
+        <div class="key" data-k="5">5</div>
+        <div class="key" data-k="6">6</div>
+        <div class="key fn" data-k="pi">π</div>
+        <div class="key fn" data-k="e">e</div>
+        <div class="key fn" data-k="ANS">Ans</div>
+
+        <div class="key" data-k="1">1</div>
+        <div class="key" data-k="2">2</div>
+        <div class="key" data-k="3">3</div>
+        <div class="key wide" data-k=",">,</div>
+        <div class="key fn" data-k="DEL">DEL</div>
+        <div class="key equal" data-k="=">=</div>
+
+        <div class="key wide" data-k="0">0</div>
+        <div class="key" data-k=".">.</div>
+        <div class="key wide" data-k=" ">space</div>
+      </div>
+
+      <div class="footer">
+        <div>Made for you • Robot tutor on the right</div>
+        <div class="links">
+          <span class="chip">Tips: use ↑ to recall previous</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Side panel: History + Robot Tutor -->
+    <aside class="side">
+      <div class="head">
+        <h2>Session</h2>
+        <span class="chip" id="modeReadout">DEG mode</span>
+      </div>
+
+      <div class="history" id="history" aria-label="calculation history"></div>
+
+      <div class="robot">
+        <div class="bot-wrap">
+          <div class="bot" aria-hidden="true">
+            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="3" y="8" width="18" height="10" rx="4" fill="white" opacity=".9"/>
+              <circle cx="9" cy="13" r="1.6" fill="#6d54ff"/>
+              <circle cx="15" cy="13" r="1.6" fill="#6d54ff"/>
+              <rect x="10.8" y="2" width="2.4" height="6" rx="1.2" fill="white"/>
+              <circle cx="12" cy="2" r="1.6" fill="#a68cff"/>
+            </svg>
+          </div>
+          <div class="bubble">
+            <div class="title">TutorBot</div>
+            <div class="msg" id="botMsg">Hi! Enter an expression and press =. I’ll explain the steps and sprinkle fun facts.</div>
+            <div class="facts"><span class="label">Fact:</span> <span id="factText">The word “sine” comes from the Latin “sinus,” meaning bay or fold.</span></div>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <script>
+    // --- Utility & Parser (Shunting-yard to RPN) ---
+    const state = {
+      mem: 0,
+      ans: 0,
+      angleMode: 'DEG',
+      history: [],
+      facts: [
+        'Zero is the only real number that is neither positive nor negative.',
+        'Euler’s identity: e^(iπ) + 1 = 0 connects five constants.',
+        'A googol is 10^100; more than atoms in the observable universe.',
+        'The derivative of ln(x) is 1/x.',
+        'The golden ratio φ ≈ 1.618 appears in nature and art.',
+        'Radians measure angle by arc length over radius.',
+        'sin^2(x) + cos^2(x) = 1 for all x.',
+        'Prime numbers are the building blocks of integers.',
+        'Logarithms turn multiplication into addition.',
+        'π is irrational; its digits never repeat.'
+      ],
+      fact(){return this.facts[Math.floor(Math.random()*this.facts.length)]}
+    }
+
+    const exprEl = document.getElementById('expr');
+    const resultEl = document.getElementById('result');
+    const historyEl = document.getElementById('history');
+    const botMsg = document.getElementById('botMsg');
+    const factText = document.getElementById('factText');
+    const modeReadout = document.getElementById('modeReadout');
+
+    const degBtn = document.getElementById('degBtn');
+    const radBtn = document.getElementById('radBtn');
+    degBtn.addEventListener('click',()=>setAngle('DEG'));
+    radBtn.addEventListener('click',()=>setAngle('RAD'));
+
+    function setAngle(mode){
+      state.angleMode = mode;
+      degBtn.classList.toggle('active', mode==='DEG');
+      radBtn.classList.toggle('active', mode==='RAD');
+      modeReadout.textContent = mode+ ' mode';
+      botSay(`Angle mode set to <b>${mode}</b>. Trig inputs are interpreted in ${mode==='DEG'?'degrees':'radians'}.`);
+      exprEl.focus();
+    }
+
+    // Tokenizer supports numbers, identifiers, operators, parentheses, comma, factorial !
+    const isDigit = c=> /[0-9]/.test(c);
+    const isAlpha = c=> /[a-z]/i.test(c);
+
+    function tokenize(s){
+      const tokens=[]; let i=0;
+      while(i<s.length){
+        let c = s[i];
+        if(c===' '){ i++; continue; }
+        if(isDigit(c) || (c==='.' && isDigit(s[i+1]))){
+          let start=i; i++;
+          while(i<s.length && (isDigit(s[i]) || s[i]==='.' )) i++;
+          tokens.push({type:'num', value:parseFloat(s.slice(start,i))});
+          continue;
+        }
+        if(isAlpha(c)){
+          let start=i; i++;
+          while(i<s.length && /[a-z0-9_]/i.test(s[i])) i++;
+          const name=s.slice(start,i);
+          tokens.push({type:'id', value:name});
+          continue;
+        }
+        if(c==='('||c===')'||c===','||c==='!'){
+          tokens.push({type:c, value:c}); i++; continue;
+        }
+        // Operators
+        if(['+','-','*','/','^','%'].includes(c)){
+          tokens.push({type:'op', value:c}); i++; continue;
+        }
+        // Unknown
+        throw new Error('Unexpected character: '+c);
+      }
+      return tokens;
+    }
+
+    // Operator precedence/associativity
+    const OPS = {
+      '+':{p:2, a:'L', n:2, f:(a,b)=>a+b},
+      '-':{p:2, a:'L', n:2, f:(a,b)=>a-b},
+      '*':{p:3, a:'L', n:2, f:(a,b)=>a*b},
+      '/':{p:3, a:'L', n:2, f:(a,b)=>a/b},
+      '%':{p:3, a:'L', n:2, f:(a,b)=>a%b},
+      '^':{p:4, a:'R', n:2, f:(a,b)=>Math.pow(a,b)}
+    };
+
+    // Supported functions
+    const FUN = {
+      sin:x=>Math.sin(toRad(x)),
+      cos:x=>Math.cos(toRad(x)),
+      tan:x=>Math.tan(toRad(x)),
+      asin:x=>fromRad(Math.asin(x)),
+      acos:x=>fromRad(Math.acos(x)),
+      atan:x=>fromRad(Math.atan(x)),
+      ln: x=>Math.log(x),
+      log:x=>Math.log10(x),
+      sqrt:x=>Math.sqrt(x),
+      abs:x=>Math.abs(x),
+      exp:x=>Math.exp(x)
+    };
+
+    function toRad(x){ return state.angleMode==='DEG'? x*Math.PI/180 : x }
+    function fromRad(x){ return state.angleMode==='DEG'? x*180/Math.PI : x }
+
+    function factorial(n){
+      if(!Number.isFinite(n) || n<0 || Math.floor(n)!==n) throw new Error('Factorial only for non-negative integers');
+      let r=1; for(let i=2;i<=n;i++) r*=i; return r;
+    }
+
+    // Insert implicit multiplication (e.g., 2(3), (2)3, 2π, π(2), number id)
+    function insertImplicit(tokens){
+      const out=[];
+      for(let i=0;i<tokens.length;i++){
+        const t=tokens[i];
+        const prev=out[out.length-1];
+        if(prev &&
+          ((prev.type==='num' || prev.type===')' || prev.type==='id' ) &&
+           (t.type==='(' || t.type==='id' || t.type==='num'))){
+          out.push({type:'op', value:'*'});
+        }
+        out.push(t);
+      }
+      return out;
+    }
+
+    function toRPN(tokens){
+      const out=[]; const stack=[];
+      // handle unary + and - by inserting 0 in front where appropriate
+      const tks = tokens.slice();
+      for(let i=0;i<tks.length;i++){
+        const t=tks[i];
+        if(t.type==='op' && (t.value==='+'||t.value==='-')){
+          const prev = tks[i-1];
+          if(!prev || (prev.type==='op' || prev.type==='(' || prev.type===',')){
+            out.push({type:'num', value:0});
+          }
+        }
+        if(t.type==='num') out.push(t);
+        else if(t.type==='id') stack.push(t);
+        else if(t.type==='op'){
+          const o1=t.value; let o2;
+          while((o2=stack[stack.length-1]) && ((o2.type==='op' && ((OPS[o2.value].p>OPS[o1].p) || (OPS[o2.value].p===OPS[o1].p && OPS[o1].a==='L'))) || o2.type==='!')){
+            out.push(stack.pop());
+          }
+          stack.push(t);
+        }else if(t.type==='('){
+          stack.push(t);
+        }else if(t.type===')'){
+          while(stack.length && stack[stack.length-1].type!=='(') out.push(stack.pop());
+          if(!stack.length) throw new Error('Mismatched parentheses');
+          stack.pop();
+          if(stack.length && stack[stack.length-1].type==='id') out.push(stack.pop());
+        }else if(t.type===','){
+          while(stack.length && stack[stack.length-1].type!=='(') out.push(stack.pop());
+          if(!stack.length) throw new Error('Separator misplaced');
+        }else if(t.type==='!'){
+          out.push(t);
+        }
+      }
+      while(stack.length){
+        const x=stack.pop();
+        if(x.type==='('||x.type===')') throw new Error('Mismatched parentheses');
+        out.push(x);
+      }
+      return out;
+    }
+
+    function evalRPN(rpn){
+      const st=[]; const steps=[];
+      function step(desc){ steps.push(desc) }
+      for(const t of rpn){
+        if(t.type==='num'){ st.push(t.value); }
+        else if(t.type==='id'){
+          const name=t.value;
+          if(name==='pi' || name==='π'){ st.push(Math.PI); step('π → '+Math.PI.toFixed(10)); continue; }
+          if(name==='e'){ st.push(Math.E); step('e → '+Math.E.toFixed(10)); continue; }
+          if(name==='ANS' || name==='ans'){ st.push(state.ans); step('ANS → '+state.ans); continue; }
+          const f = FUN[name];
+          if(!f) throw new Error('Unknown function: '+name);
+          if(st.length<1) throw new Error('Not enough operands for '+name);
+          const a = st.pop();
+          const r = f(a);
+          st.push(r);
+          step(`${name}(${fmt(a)}) = ${fmt(r)}`);
+        }
+        else if(t.type==='op'){
+          const o=t.value; const spec=OPS[o];
+          if(st.length<spec.n) throw new Error('Not enough operands for '+o);
+          const b=st.pop(); const a=st.pop();
+          const r=spec.f(a,b);
+          st.push(r);
+          step(`${fmt(a)} ${o} ${fmt(b)} = ${fmt(r)}`);
+        }
+        else if(t.type==='!'){
+          if(st.length<1) throw new Error('Not enough operands for !');
+          const a=st.pop(); const r=factorial(a);
+          st.push(r); step(`${a}! = ${fmt(r)}`);
+        }
+      }
+      if(st.length!==1) throw new Error('Invalid expression');
+      return {value: st[0], steps};
+    }
+
+    function fmt(x){
+      if(!Number.isFinite(x)) return String(x);
+      const ax=Math.abs(x);
+      if(ax!==0 && (ax<1e-6 || ax>=1e9)) return x.toExponential(6);
+      return parseFloat(x.toFixed(12)).toString();
+    }
+
+    function explain(tokens, rpn, steps){
+      const tstr = tokens.map(t=> t.type==='num'? t.value : t.value||t.type).join(' ');
+      const rstr = rpn.map(t=> t.type==='num'? t.value : t.value||t.type).join(' ');
+      botSay(`<div>Tokens: <span class="kbd">${escapeHtml(tstr)}</span></div>
+              <div>RPN: <span class="kbd">${escapeHtml(rstr)}</span></div>
+              <div>Steps:</div>
+              <ol style="margin:.25rem 0 .25rem 1rem">${steps.map(s=>`<li>${escapeHtml(s)}</li>`).join('')}</ol>`);
+      updateFact();
+    }
+
+    function escapeHtml(s){ return s.replace(/[&<>]/g, c=> ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]) ) }
+
+    function calculate(){
+      const input = exprEl.value.replace(/\s+/g,'');
+      if(!input){ resultEl.textContent='0'; return; }
+      try{
+        // Preprocess: replace common aliases
+        const replaced = input.replace(/π/g,'pi');
+        let tokens = tokenize(replaced);
+        tokens = insertImplicit(tokens);
+        const rpn = toRPN(tokens);
+        const {value, steps} = evalRPN(rpn);
+        const out = fmt(value);
+        resultEl.textContent = out;
+        state.ans = value;
+        pushHistory(input, out);
+        explain(tokens, rpn, steps);
+      }catch(err){
+        resultEl.textContent = 'Error';
+        botSay(`<span style="color:#ff9">${escapeHtml(err.message)}</span>`);
+      }
+    }
+
+    function pushHistory(ex, res){
+      state.history.unshift({ex, res, t: Date.now()});
+      historyEl.innerHTML = state.history.slice(0,50).map(h=>`<div class="row"><div class="h-expr">${escapeHtml(h.ex)}</div><div class="h-res">${escapeHtml(res)}</div></div>`).join('');
+    }
+
+    function botSay(html){
+      botMsg.innerHTML = html;
+    }
+
+    function updateFact(){ factText.textContent = state.fact(); }
+
+    // --- Keyboard & Button wiring ---
+    document.querySelectorAll('.key').forEach(k=>{
+      k.addEventListener('click',()=>press(k.dataset.k));
+    });
+
+    function press(k){
+      exprEl.focus();
+      const map={
+        'AC': ()=>{ exprEl.value=''; resultEl.textContent='0'; },
+        'DEL':()=>{ exprEl.value = exprEl.value.slice(0,-1); },
+        'MC': ()=>{ state.mem=0; memVal.textContent='0'; botSay('Memory cleared.'); },
+        'MR': ()=>{ insertAtCursor(String(state.mem)); botSay(`Recalled ${state.mem} from memory.`); },
+        'M+': ()=>{ state.mem += Number(resultEl.textContent)||0; memVal.textContent=fmt(state.mem); botSay('Added current result to memory.'); },
+        'M-': ()=>{ state.mem -= Number(resultEl.textContent)||0; memVal.textContent=fmt(state.mem); botSay('Subtracted current result from memory.'); },
+        'ANS':()=>{ insertAtCursor('ANS'); },
+        '1/x':()=>{ insertAtCursor('1/('); insertAtCursor(')'); moveCursor(-1); },
+        '+/-':()=>{ insertAtCursor('-('); insertAtCursor(')'); moveCursor(-1); },
+        'pi': ()=> insertAtCursor('π'),
+        'e':  ()=> insertAtCursor('e'),
+        'sin':()=> insertAtCursor('sin('),
+        'cos':()=> insertAtCursor('cos('),
+        'tan':()=> insertAtCursor('tan('),
+        'asin':()=> insertAtCursor('asin('),
+        'acos':()=> insertAtCursor('acos('),
+        'atan':()=> insertAtCursor('atan('),
+        'ln': ()=> insertAtCursor('ln('),
+        'log':()=> insertAtCursor('log('),
+        'sqrt':()=> insertAtCursor('sqrt('),
+        'abs':()=> insertAtCursor('abs('),
+        'exp':()=> insertAtCursor('exp('),
+        'fact':()=> insertAtCursor('!'),
+        '=':  ()=> calculate(),
+        ',':  ()=> insertAtCursor(','),
+        ' ':  ()=> insertAtCursor(' '),
+        default: ()=> insertAtCursor(k)
+      };
+      (map[k]||map.default)();
+    }
+
+    function insertAtCursor(txt){
+      const el = exprEl; const start = el.selectionStart; const end=el.selectionEnd;
+      el.value = el.value.slice(0,start) + txt + el.value.slice(end);
+      el.selectionStart = el.selectionEnd = start + txt.length;
+      preview();
+    }
+    function moveCursor(n){ const el=exprEl; el.selectionStart=el.selectionEnd=Math.max(0,Math.min(el.value.length, el.selectionStart+n)); }
+
+    exprEl.addEventListener('keydown', (e)=>{
+      if(e.key==='Enter'){ e.preventDefault(); calculate(); }
+      else if(e.key==='Backspace'){ setTimeout(preview,0); }
+      else if(e.key==='ArrowUp'){ if(state.history[0]){ exprEl.value = state.history[0].ex; setTimeout(preview,0);} }
+      else{ setTimeout(preview,0); }
+    });
+
+    exprEl.addEventListener('input', preview);
+
+    function preview(){
+      const input = exprEl.value.replace(/\s+/g,'');
+      if(!input){ resultEl.textContent='0'; return; }
+      try{
+        const replaced = input.replace(/π/g,'pi');
+        let tokens = tokenize(replaced);
+        tokens = insertImplicit(tokens);
+        const rpn = toRPN(tokens);
+        const {value} = evalRPN(rpn);
+        resultEl.textContent = fmt(value);
+      }catch{ /* silent preview errors */ }
+    }
+
+    // Accessibility: announce function hints when buttons focused
+    const hintFor = {
+      'sin':'Sine expects an angle in current mode. Try sin(30).',
+      'cos':'Cosine of an angle.',
+      'tan':'Tangent can blow up near 90° (π/2).',
+      'asin':'Inverse sine returns an angle.',
+      'acos':'Inverse cosine returns an angle.',
+      'atan':'Inverse tangent returns an angle.',
+      'ln':'Natural log base e.',
+      'log':'Common log base 10.',
+      'sqrt':'Square root; sqrt(9)=3.',
+      'exp':'e raised to power: exp(x).',
+      'abs':'Absolute value |x|.',
+      'fact':'Factorial n! for integers.'
+    };
+    document.querySelectorAll('.key.fn').forEach(k=>{
+      const name = k.dataset.k;
+      k.addEventListener('mouseenter',()=> botSay(hintFor[name] || 'Function key'))
+      k.addEventListener('focus',()=> botSay(hintFor[name] || 'Function key'))
+    });
+
+    // Initialize
+    updateFact(); preview(); exprEl.focus();
+  </script>
+</body>
+</html>
